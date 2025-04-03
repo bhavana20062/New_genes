@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Market Analyzer</title>
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #00c6ff, #0072ff);
+            color: white;
+            text-align: center;
+            margin: 20px;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 1000px;
+            margin: auto;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.2);
+        }
+        select, button, input {
+            padding: 12px;
+            margin: 10px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        select, input {
+            background: white;
+            color: black;
+            width: 200px;
+        }
+        button {
+            background: #ff4081;
+            color: white;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        button:hover {
+            background: #ff79b0;
+        }
+        table {
+            margin: 20px auto;
+            border-collapse: collapse;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        th, td {
+            padding: 12px;
+            border: 1px solid white;
+        }
+        th {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .recommendation {
+            color: #ffeb3b;
+            font-weight: bold;
+            font-size: 18px;
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+        }
+        .loader {
+            display: none;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 4px solid #fff;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 10px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .price-change.up {
+            color: #4CAF50;
+        }
+        .price-change.down {
+            color: #f44336;
+        }
+        .product-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .product-card {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .product-card:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .product-card.selected {
+            background: #ff4081;
+            box-shadow: 0 0 10px rgba(255, 64, 129, 0.5);
+        }
+        .product-card img {
+            width: 50px;
+            height: 50px;
+            object-fit: contain;
+        }
+    </style>
+</head>
+<body>
+    <h1>🌾 Farmer's Market Price Analyzer 🌽</h1>
+    <div class="container">
+        <h2>Select a Product</h2>
+        <div class="product-grid" id="productGrid">
+            <!-- Products will be loaded here -->
+        </div>
+        
+        <label for="quantity">Quantity (kg):</label>
+        <input type="number" id="quantity" min="1" value="100">
+        <button onclick="fetchPrices()">Get Market Prices</button>
+        <div class="loader" id="loader"></div>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        // Extensive product database with realistic Indian market prices (in USD/kg)
+        const productDatabase = {
+            grains: [
+                { id: 'wheat', name: 'Wheat', image: '🌾', prices: [
+                    { market: 'Mumbai Wholesale', price: 0.30 },
+                    { market: 'Delhi Mandi', price: 0.28 },
+                    { market: 'Punjab Market', price: 0.27 },
+                    { market: 'UP Wholesale', price: 0.29 }
+                ]},
+                { id: 'rice', name: 'Rice', image: '🍚', prices: [
+                    { market: 'Mumbai Wholesale', price: 0.45 },
+                    { market: 'Delhi Mandi', price: 0.43 },
+                    { market: 'West Bengal Market', price: 0.40 },
+                    { market: 'AP Wholesale', price: 0.42 }
+                ]},
+                { id: 'corn', name: 'Corn', image: '🌽', prices: [
+                    { market: 'Mumbai Wholesale', price: 0.25 },
+                    { market: 'Delhi Mandi', price: 0.23 },
+                    { market: 'Karnataka Market', price: 0.24 },
+                    { market: 'MP Wholesale', price: 0.22 }
+                ]}
+            ],
+            vegetables: [
+                { id: 'potatoes', name: 'Potatoes', image: '🥔', prices: [
+                    { market: 'Mumbai Wholesale', price: 0.15 },
+                    { market: 'Delhi Mandi', price: 0.14 },
+                    { market: 'UP Market', price: 0.13 },
+                    { market: 'Gujarat Wholesale', price: 0.16 }
+                ]},
+                { id: 'tomatoes', name: 'Tomatoes', image: '🍅', prices: [
+                    { market: 'Mumbai Wholesale', price: 0.20 },
+                    { market: 'Delhi Mandi', price: 0.22 },
+                    { market: 'Maharashtra Market', price: 0.18 },
+                    { market: 'Karnataka Wholesale', price: 0.19 }
+                ]},
+                { id: 'onions', name: 'Onions', image: '🧅', prices: [
+                    { market: 'Mumbai Wholesale', price: 0.18 },
+                    { market: 'Delhi Mandi', price: 0.17 },
+                    { market: 'Maharashtra Market', price: 0.16 },
+                    { market: 'Rajasthan Wholesale', price: 0.19 }
+                ]}
+            ],
+            fruits: [
+                { id: 'apples', name: 'Apples', image: '🍎', prices: [
+                    { market: 'Mumbai Wholesale', price: 0.90 },
+                    { market: 'Delhi Mandi', price: 0.85 },
+                    { market: 'Himachal Market', price: 0.80 },
+                    { market: 'Kashmir Wholesale', price: 0.82 }
+                ]},
+                { id: 'bananas', name: 'Bananas', image: '🍌', prices: [
+                    { market: 'Mumbai Wholesale', price: 0.15 },
+                    { market: 'Delhi Mandi', price: 0.14 },
+                    { market: 'Kerala Market', price: 0.13 },
+                    { market: 'TN Wholesale', price: 0.14 }
+                ]},
+                { id: 'mangoes', name: 'Mangoes', image: '🥭', prices: [
+                    { market: 'Mumbai Wholesale', price: 0.60 },
+                    { market: 'Delhi Mandi', price: 0.65 },
+                    { market: 'UP Market', price: 0.55 },
+                    { market: 'AP Wholesale', price: 0.58 }
+                ]}
+            ],
+            pulses: [
+                { id: 'lentils', name: 'Lentils', image: '🥄', prices: [
+                    { market: 'Mumbai Wholesale', price: 0.70 },
+                    { market: 'Delhi Mandi', price: 0.68 },
+                    { market: 'Rajasthan Market', price: 0.65 },
+                    { market: 'MP Wholesale', price: 0.67 }
+                ]},
+                { id: 'chickpeas', name: 'Chickpeas', image: '🌱', prices: [
+                    { market: 'Mumbai Wholesale', price: 0.55 },
+                    { market: 'Delhi Mandi', price: 0.53 },
+                    { market: 'Maharashtra Market', price: 0.52 },
+                    { market: 'Gujarat Wholesale', price: 0.54 }
+                ]},
+                { id: 'black_gram', name: 'Black Gram', image: '⚫', prices: [
+                    { market: 'Mumbai Wholesale', price: 0.75 },
+                    { market: 'Delhi Mandi', price: 0.73 },
+                    { market: 'TN Market', price: 0.72 },
+                    { market: 'Karnataka Wholesale', price: 0.74 }
+                ]}
+            ]
+        };
+
+        // Current selected product
+        let selectedProduct = null;
+        const exchangeRate = 83.50; // Fixed USD to INR rate
+
+        // Initialize the product grid
+        function initProductGrid() {
+            const grid = document.getElementById('productGrid');
+            grid.innerHTML = '';
+            
+            // Add all products to the grid
+            Object.values(productDatabase).forEach(category => {
+                category.forEach(product => {
+                    const card = document.createElement('div');
+                    card.className = 'product-card';
+                    card.innerHTML = `
+                        <div style="font-size: 2rem;">${product.image}</div>
+                        <div>${product.name}</div>
+                    `;
+                    card.addEventListener('click', () => selectProduct(product));
+                    grid.appendChild(card);
+                });
+            });
+        }
+
+        // Select a product
+        function selectProduct(product) {
+            selectedProduct = product;
+            
+            // Update UI
+            document.querySelectorAll('.product-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            event.currentTarget.classList.add('selected');
+            
+            // Show quick price range
+            const prices = product.prices.map(p => p.price);
+            const minPrice = Math.min(...prices).toFixed(2);
+            const maxPrice = Math.max(...prices).toFixed(2);
+            event.currentTarget.innerHTML += `
+                <div style="margin-top: 5px; font-size: 0.8rem;">
+                    $${minPrice}-$${maxPrice}/kg
+                </div>
+            `;
+        }
+
+        // Fetch prices for selected product
+        function fetchPrices() {
+            if (!selectedProduct) {
+                alert('Please select a product first');
+                return;
+            }
+            
+            const quantity = parseFloat(document.getElementById('quantity').value) || 100;
+            document.getElementById('loader').style.display = 'block';
+            document.getElementById('results').innerHTML = '';
+            
+            // Simulate API delay
+            setTimeout(() => {
+                const data = {
+                    product: selectedProduct.name,
+                    prices: selectedProduct.prices,
+                    recommendation: getBestPrice(selectedProduct.prices)
+                };
+                displayResults(data, quantity);
+                document.getElementById('loader').style.display = 'none';
+            }, 800);
+        }
+
+        // Find best price from array
+        function getBestPrice(prices) {
+            let best = prices[0];
+            prices.forEach(item => {
+                if (item.price > best.price) best = item;
+            });
+            return best;
+        }
+
+        // Display results
+        function displayResults(data, quantity) {
+            let html = `
+                <h2>${data.product} Market Prices</h2>
+                <table>
+                    <tr>
+                        <th>Market</th>
+                        <th>Price (USD/kg)</th>
+                        <th>Price (INR/kg)</th>
+                        <th>Total Value (INR)</th>
+                        <th>Price Trend</th>
+                    </tr>
+            `;
+            
+            data.prices.forEach(item => {
+                const inrPrice = (item.price * exchangeRate).toFixed(2);
+                const totalValue = (item.price * exchangeRate * quantity).toFixed(2);
+                const trend = Math.random() > 0.5 ? 'up' : 'down';
+                const trendIcon = trend === 'up' ? '↑' : '↓';
+                const trendValue = (Math.random() * 5).toFixed(2);
+                
+                html += `
+                    <tr>
+                        <td>${item.market}</td>
+                        <td>$${item.price.toFixed(2)}</td>
+                        <td>₹${inrPrice}</td>
+                        <td>₹${totalValue}</td>
+                        <td class="price-change ${trend}">
+                            ${trendIcon} ${trendValue}%
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += `</table>`;
+            
+            const bestInrPrice = (data.recommendation.price * exchangeRate).toFixed(2);
+            const bestTotalValue = (data.recommendation.price * exchangeRate * quantity).toFixed(2);
+            
+            html += `
+                <div class="recommendation">
+                    <div style="font-size: 1.5rem;">💰 Best Selling Opportunity</div>
+                    <div>Market: <strong>${data.recommendation.market}</strong></div>
+                    <div>Price: <strong>$${data.recommendation.price.toFixed(2)}/kg (₹${bestInrPrice}/kg)</strong></div>
+                    <div>Estimated ${quantity}kg Value: <strong>₹${bestTotalValue}</strong></div>
+                    <div style="margin-top: 10px;">Last updated: ${new Date().toLocaleString()}</div>
+                </div>
+            `;
+            
+            document.getElementById('results').innerHTML = html;
+        }
+
+        // Initialize the app
+        window.onload = function() {
+            initProductGrid();
+        };
+    </script>
+</body>
+</html>
